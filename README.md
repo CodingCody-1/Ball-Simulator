@@ -36,7 +36,8 @@ serves happily. `server.js` is only for local previewing and isn't used by Pages
 - **Apply external forces.** Kick buttons apply impulses; the constant-force sliders
   apply a steady push. Watch it recover.
 - **Adjust every parameter** live: ball size/mass/inertia, body mass/inertia, gravity,
-  rolling resistance, wheel radius, wheel zenith & tilt angle, and all controller gains.
+  rolling resistance, wheel radius, contact zenith, and the **pyramid angle** of the
+  drive (how flat the wheels lie), plus all controller gains.
 - **Auto-tune the controller** for the current robot (see below).
 - **Read telemetry** and a live plot of lean angle and position error.
 
@@ -100,7 +101,7 @@ const { OmniKinematics } = require('./kinematics.js');
 
 const ctrl = new Controller(/* optional gain overrides */);
 const kin  = new OmniKinematics({ r: 0.0508, rWheel: 0.029,
-                                  zeta: 47*Math.PI/180, tilt: 45*Math.PI/180 });
+                                  zeta: 55*Math.PI/180, gamma: 22*Math.PI/180 });
 
 // at a fixed rate (e.g. 200 Hz):
 function onTick(dt) {

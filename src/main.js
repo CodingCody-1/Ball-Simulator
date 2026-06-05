@@ -11,7 +11,7 @@
   var params = {
     r: 0.0508, mBall: 0.6, iBallK: 0.6667, mBody: 2.5, lBody: 0.18, iBody: 0.03,
     comX: 0, comY: 0, g: 9.81, iYaw: 0.02, yawDamp: 0.02, floorDamp: 0.0,
-    rWheel: 0.029, zeta: 75 * DEG, tilt: 72 * DEG, azimuth0: 0, maxLean: 1.2
+    rWheel: 0.029, zeta: 55 * DEG, gamma: 22 * DEG, azimuth0: 0, maxLean: 1.2
   };
   var commands = { tx: 0, ty: 0, tyaw: 0 };
   var forces = { fx: 0, fy: 0 };
@@ -147,10 +147,10 @@
   var wBody = UI.section(panel, '⚙  Omni-wheel geometry', true);
   UI.slider(wBody, { label: 'Wheel radius', min: 0.01, max: 0.06, step: 0.001, value: params.rWheel,
     unit: 'm', fmt: f3, onInput: function (v) { params.rWheel = v; syncParams(); } });
-  UI.slider(wBody, { label: 'Zenith angle (lower = flatter wheels)', min: 20, max: 89, step: 1, value: 75,
+  UI.slider(wBody, { label: 'Contact zenith (yaw↔drive balance)', min: 20, max: 80, step: 1, value: 55,
     unit: '°', fmt: f0, onInput: function (v) { params.zeta = v * DEG; syncParams(); } });
-  UI.slider(wBody, { label: 'Wheel tilt (yaw authority)', min: 0, max: 89, step: 1, value: 72,
-    unit: '°', fmt: f0, onInput: function (v) { params.tilt = v * DEG; syncParams(); } });
+  UI.slider(wBody, { label: 'Pyramid angle (lower = flatter wheels)', min: 8, max: 80, step: 1, value: 22,
+    unit: '°', fmt: f0, onInput: function (v) { params.gamma = v * DEG; syncParams(); } });
   UI.slider(wBody, { label: 'Array rotation', min: 0, max: 120, step: 1, value: 0,
     unit: '°', fmt: f0, onInput: function (v) { params.azimuth0 = v * DEG; syncParams(); } });
 

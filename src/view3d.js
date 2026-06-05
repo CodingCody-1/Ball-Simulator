@@ -76,6 +76,8 @@
     this.cage = new THREE.Group();
     this.root.add(this.cage);
     this.wheels = [];
+    this.axleLines = [];
+    var axleMat = new THREE.LineBasicMaterial({ color: 0x6b7686 });
     for (var i = 0; i < 3; i++) {
       var wheel = new THREE.Mesh(
         new THREE.CylinderGeometry(0.029, 0.029, 0.016, 20),
@@ -84,7 +86,19 @@
       wheel.castShadow = true;
       this.cage.add(wheel);
       this.wheels.push(wheel);
+      // axle line from the wheel center to the shared apex (shows the pyramid)
+      var lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+      var line = new THREE.Line(lg, axleMat);
+      this.cage.add(line);
+      this.axleLines.push(line);
     }
+    // shared apex of the three axles (the pyramid tip)
+    this.apexMarker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.006, 12, 8),
+      new THREE.MeshStandardMaterial({ color: 0x6b7686, emissive: 0x20242c })
+    );
+    this.cage.add(this.apexMarker);
 
     // chassis: the tall body that leans. Pivots about the ball center.
     this.chassis = new THREE.Group();
@@ -124,8 +138,8 @@
     this.scene.add(this.forceArrow);
 
     this._ballQuat = new THREE.Quaternion();
-    this.setParams({ r: 0.0508, lBody: 0.18, rWheel: 0.029, zeta: 75 * Math.PI / 180,
-                     tilt: 72 * Math.PI / 180, azimuth0: 0, comX: 0, comY: 0 });
+    this.setParams({ r: 0.0508, lBody: 0.18, rWheel: 0.029, zeta: 55 * Math.PI / 180,
+                     gamma: 22 * Math.PI / 180, azimuth0: 0, comX: 0, comY: 0 });
   }
 
   // Rebuild sizes/positions when geometry params change.
@@ -146,35 +160,27 @@
     this.bodyMesh.position.set(0, l, 0);
     this.mast.position.set(0, l + 0.14, 0);
 
-    // wheels around the ball at zenith zeta, azimuth i*120
+    // Wheel placement/orientation comes straight from the kinematics model so
+    // the picture and the math never disagree. The three spin axles form a
+    // pyramid sharing the apex; small pyramid angle => nearly flat wheels.
+    // (sim is Z-up; map sim (x,y,z) -> three (x, z, y).)
+    var kin = new BallBot.OmniKinematics(this.p);
+    function toThree(v) { return new THREE.Vector3(v[0], v[2], v[1]); }
+    var apex3 = toThree(kin.apex);
     for (var i = 0; i < 3; i++) {
-      var psi = this.p.azimuth0 + i * 120 * Math.PI / 180;
-      var z = this.p.zeta;
-      var cx = Math.sin(z) * Math.cos(psi);
-      var cy = Math.cos(z);
-      var cz = Math.sin(z) * Math.sin(psi);
       var w = this.wheels[i];
-      // place just outside the ball surface
-      var rr = r + this.p.rWheel * 0.6;
-      w.position.set(cx * rr, cy * rr, cz * rr);
+      var c3 = toThree(kin.center[i]);
+      var ax3 = toThree(kin.axle[i]).normalize();
+      w.position.copy(c3);
       w.scale.setScalar(this.p.rWheel / 0.029);
-      // Orient each wheel so its cylinder (spin) axis equals the true omni-wheel
-      // spin axle = the kinematic sensitivity vector
-      //   n_i = -sin(a)cos(z)*e_r + cos(a)*e_t + sin(a)sin(z)*up
-      // The +up component is shared by all three wheels, so spinning them in
-      // common rotates the ball about the vertical axis (yaw) — exactly the
-      // real 3-omni-wheel behavior. (e_r/e_t are the horizontal radial/tangential
-      // unit vectors in three.js space, where +Y is up.)
-      var a = this.p.tilt;
-      var er = new THREE.Vector3(Math.cos(psi), 0, Math.sin(psi));
-      var et = new THREE.Vector3(-Math.sin(psi), 0, Math.cos(psi));
-      var axle = new THREE.Vector3()
-        .addScaledVector(er, -Math.sin(a) * Math.cos(z))
-        .addScaledVector(et, Math.cos(a))
-        .add(new THREE.Vector3(0, Math.sin(a) * Math.sin(z), 0))
-        .normalize();
-      w.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axle);
+      w.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), ax3);
+      // axle line from wheel center to the shared apex
+      var pos = this.axleLines[i].geometry.attributes.position;
+      pos.setXYZ(0, c3.x, c3.y, c3.z);
+      pos.setXYZ(1, apex3.x, apex3.y, apex3.z);
+      pos.needsUpdate = true;
     }
+    this.apexMarker.position.copy(apex3);
     this.comMarker.position.set(this.p.comX, l, this.p.comY);
   };
 

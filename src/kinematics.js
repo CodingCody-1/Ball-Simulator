@@ -3,21 +3,25 @@
  * -----------------------------------------------------------------------------
  * Portable (browser + Node + transpilable). No external dependencies.
  *
- * GEOMETRY (parameterized so every value is adjustable from the UI):
- *   Three omni wheels press on a sphere of radius r. Wheel i sits at:
- *      azimuth      psi_i = azimuth0 + i * 120 deg     (around the vertical axis)
- *      zenith       zeta                                (angle from +Z, the top)
- *   Each wheel's drive direction is tilted by `tilt` (alpha) out of the local
- *   "downhill" tangent, which is what gives the array yaw authority.
+ * GEOMETRY (real ballbot arrangement, parameterized for the UI):
+ *   Three omni wheels press on a sphere of radius r. Wheel i:
+ *      azimuth psi_i = azimuth0 + i*120 deg          (around the vertical axis)
+ *      contact zenith `zeta`                          (angle from +Z, the top)
+ *      spin axle tilted `gamma` from vertical, IN the wheel's vertical plane.
+ *   Because every axle lies in a vertical plane, the three axles all intersect
+ *   at one point on the central axis -> they form a pyramid sharing an apex.
+ *   The wheel disc is perpendicular to its axle, so a small `gamma` makes the
+ *   wheels lie nearly parallel to the floor (as on real ballbots).
  *
- *   For wheel i we build the unit sensitivity vector n_i so that:
- *      omega_wheel_i = (r / r_wheel) * ( n_i . omega_ball )           (velocity)
- *      tau_ball      = sum_i (r / r_wheel) * n_i * tau_wheel_i = J^T * tau_wheel
- *   where the rows of J are (r / r_wheel) * n_i.
- *
- *   n_i = -sin(a)cos(z) * e_r  +  cos(a) * e_t  +  sin(a)sin(z) * e_z
+ *   The tangent rolling/drive direction then works out to the pure azimuthal
+ *   tangent e_t, giving the sensitivity (depends only on the contact zenith):
+ *      n_i = (r / r_wheel) * ( -cos(zeta) * e_r_i  +  sin(zeta) * e_z )
+ *      omega_wheel_i = n_i . omega_ball                              (velocity)
+ *      tau_ball      = sum_i n_i * tau_wheel_i = J^T * tau_wheel      (torque)
+ *   where the rows of J are n_i.  The shared sin(zeta)*e_z term means spinning
+ *   all three wheels together rotates the ball about the vertical axis (yaw);
+ *   the differential -cos(zeta)*e_r term produces translation.
  *      e_r = (cos psi, sin psi, 0)   radial-horizontal
- *      e_t = (-sin psi, cos psi, 0)  tangential-horizontal
  *      e_z = (0,0,1)
  *
  * This file exposes BOTH the forward map (ball motion -> wheel speeds, for
@@ -36,35 +40,51 @@
   OmniKinematics.prototype.set = function (p) {
     this.r       = p.r       != null ? p.r       : 0.0508; // ball radius [m]
     this.rWheel  = p.rWheel  != null ? p.rWheel  : 0.029;  // omni wheel radius [m]
-    this.zeta    = p.zeta    != null ? p.zeta    : 75*DEG; // zenith angle [rad] (lower = flatter wheels)
-    this.tilt    = p.tilt    != null ? p.tilt    : 72*DEG; // wheel tilt (yaw authority) [rad]
+    this.zeta    = p.zeta    != null ? p.zeta    : 55*DEG; // CONTACT zenith on ball [rad]
+    this.gamma   = (p.gamma != null ? p.gamma : (p.tilt != null ? p.tilt : 22*DEG)); // axle tilt from vertical (pyramid half-angle) [rad]
     this.azimuth0= p.azimuth0!= null ? p.azimuth0: 0;      // first wheel azimuth [rad]
     this._build();
   };
 
+  // Real ballbot geometry: each wheel's spin axle lies in its own vertical
+  // plane, tilted from vertical by gamma, so the three axles meet at a common
+  // apex on the central axis (a pyramid). The wheel disc is perpendicular to
+  // the axle, so small gamma => wheels nearly parallel to the floor.
+  //
+  // Drive direction works out to the azimuthal tangent e_t, giving sensitivity
+  //   n_i = (R/r_w) * ( -cos(zeta)*e_r_i + sin(zeta)*e_z )
+  // (depends only on the CONTACT zenith, not on the pyramid angle). The shared
+  // sin(zeta)*e_z term is what makes common-mode wheel spin = yaw.
   OmniKinematics.prototype._build = function () {
-    var z = this.zeta, a = this.tilt, k = this.r / this.rWheel;
-    this.n = [];   // sensitivity unit vectors
-    this.J = [];   // 3x3 Jacobian rows = k * n_i
-    this.contact = []; // contact point unit vectors (for 3D drawing)
+    var z = this.zeta, g = this.gamma, k = this.r / this.rWheel, R = this.r, rw = this.rWheel;
+    var sz = Math.sin(z), cz = Math.cos(z), sg = Math.sin(g), cg = Math.cos(g);
+    this.n = [];        // sensitivity vectors (already include R/r_w)
+    this.J = [];        // 3x3 Jacobian rows = n_i
+    this.contact = [];  // contact point UNIT vectors on the ball (for drawing)
+    this.axle = [];     // wheel spin-axle UNIT vectors (for drawing)
+    this.center = [];   // wheel center positions [m] (for drawing)
     for (var i = 0; i < 3; i++) {
       var psi = this.azimuth0 + i * 120 * DEG;
       var cr = Math.cos(psi), sr = Math.sin(psi);
-      var er = [cr, sr, 0];
-      var et = [-sr, cr, 0];
-      var ez = [0, 0, 1];
-      var ni = [
-        -Math.sin(a)*Math.cos(z)*er[0] + Math.cos(a)*et[0] + Math.sin(a)*Math.sin(z)*ez[0],
-        -Math.sin(a)*Math.cos(z)*er[1] + Math.cos(a)*et[1] + Math.sin(a)*Math.sin(z)*ez[1],
-        -Math.sin(a)*Math.cos(z)*er[2] + Math.cos(a)*et[2] + Math.sin(a)*Math.sin(z)*ez[2]
-      ];
+      var er = [cr, sr, 0];           // radial-horizontal
+      // sensitivity row
+      var ni = [k * (-cz * er[0]), k * (-cz * er[1]), k * sz];
       this.n.push(ni);
-      this.J.push([k*ni[0], k*ni[1], k*ni[2]]);
-      // contact point on the sphere surface (zenith z, azimuth psi)
-      this.contact.push([
-        Math.sin(z)*cr, Math.sin(z)*sr, Math.cos(z)
-      ]);
+      this.J.push([ni[0], ni[1], ni[2]]);
+      // contact point (unit) at zenith z, azimuth psi
+      this.contact.push([sz * cr, sz * sr, cz]);
+      // Spin axle (unit): tilted gamma from vertical but leaning INWARD toward
+      // the central axis, so the three axles converge at a shared apex ABOVE
+      // the ball (a pyramid). This also puts the wheel center just OUTSIDE the
+      // sphere with the rim sitting tangent on the ball at the contact point.
+      this.axle.push([-sg * cr, -sg * sr, cg]);
+      // wheel center = R*contact + rWheel*(cos g * e_r + sin g * e_z)
+      var wr = R * sz + rw * cg;                    // radial distance of center
+      this.center.push([wr * cr, wr * sr, R * cz + rw * sg]);
     }
+    // apex (shared point of all three axles) on the central axis, above the ball
+    var H = sg > 1e-6 ? (R * cz + (rw + R * sz * cg) / sg) : 1e6;
+    this.apex = [0, 0, H];
     this._Jt_inv = invert3(transpose3(this.J)); // (J^T)^{-1} for torque allocation
   };
 

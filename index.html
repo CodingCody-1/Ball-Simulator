@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ballbot Simulator — 3-Omni-Wheel Balancing Robot</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --edge:#2a3140;
+    --txt:#d7dde5; --muted:#8b95a3; --accent:#3b82f6; --accent2:#4be08a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:13px;overflow:hidden}
+  #app{display:flex;height:100vh;width:100vw}
+  /* viewport */
+  #stage{flex:1;position:relative;min-width:0}
+  #view{position:absolute;inset:0}
+  #overlay{position:absolute;top:12px;left:14px;pointer-events:none}
+  #overlay h1{font-size:15px;margin:0 0 2px;font-weight:600}
+  #overlay .sub{color:var(--muted);font-size:11px}
+  #plotWrap{position:absolute;left:12px;bottom:12px;width:340px;height:120px;
+    background:#0a0d12cc;border:1px solid var(--edge);border-radius:8px;overflow:hidden}
+  #plot{width:100%;height:100%;display:block}
+  /* panel */
+  #panel{width:330px;height:100vh;overflow-y:auto;background:var(--panel);
+    border-left:1px solid var(--edge);padding:8px 10px 40px}
+  #panel::-webkit-scrollbar{width:10px}
+  #panel::-webkit-scrollbar-thumb{background:#2a3140;border-radius:5px}
+  .section{margin-bottom:8px;border:1px solid var(--edge);border-radius:8px;overflow:hidden}
+  .section-head{background:var(--panel2);padding:8px 10px;font-weight:600;cursor:pointer;
+    user-select:none;font-size:12.5px;display:flex;justify-content:space-between}
+  .section-head:after{content:'▾';color:var(--muted)}
+  .section.collapsed .section-head:after{content:'▸'}
+  .section-body{padding:8px 10px}
+  .section.collapsed .section-body{display:none}
+  .ctl{margin:7px 0}
+  .ctl label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:3px}
+  .ctl label .val{color:var(--txt);font-variant-numeric:tabular-nums}
+  .sl-wrap input[type=range]{width:100%;accent-color:var(--accent);height:18px}
+  .row{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+  .btn{flex:1;min-width:70px;background:var(--panel2);color:var(--txt);border:1px solid var(--edge);
+    border-radius:6px;padding:7px 8px;cursor:pointer;font-size:11.5px}
+  .btn:hover{border-color:var(--accent);background:#222b3a}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:#2f6fd6}
+  .hint{font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.4}
+  .readout{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1c2230;font-size:11.5px}
+  .readout .rl{color:var(--muted)}
+  .readout .rv{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <div id="view"></div>
+    <div id="overlay">
+      <h1>Ballbot Simulator</h1>
+      <div class="sub">4″ ball · 3 omni wheels · inverted-pendulum balance control</div>
+    </div>
+    <div id="plotWrap"><canvas id="plot"></canvas></div>
+  </div>
+  <div id="panel"></div>
+</div>
+
+<!-- Three.js (UMD globals) + OrbitControls, pinned to r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<!-- portable control core (no dependencies) -->
+<script src="src/controller.js"></script>
+<script src="src/kinematics.js"></script>
+<!-- simulation + view + ui -->
+<script src="src/physics.js"></script>
+<script src="src/autotune.js"></script>
+<script src="src/view3d.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "ballbot-simulator",
+  "version": "1.0.0",
+  "description": "Web-based simulator for a 3-omni-wheel ball-balancing robot (ballbot), with a portable control loop and a headless gain auto-tuner.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/sim_test.js",
+    "test:metrics": "node test/metrics.js",
+    "test:autotune": "node test/autotune_test.js"
+  },
+  "keywords": [
+    "ballbot",
+    "robotics",
+    "control-systems",
+    "simulator",
+    "inverted-pendulum",
+    "omni-wheel",
+    "three.js"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

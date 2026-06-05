@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # No dependencies to install — the control core, plant, and tests are
+      # plain dependency-free JavaScript.
+      - name: Control-loop pass/fail suite
+        run: node test/sim_test.js
+      - name: Auto-tuner smoke test
+        run: node test/autotune_test.js

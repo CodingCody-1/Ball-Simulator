@@ -1,0 +1,18 @@
+# Dependencies (this project has none, but just in case)
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# Local editor / tooling config (machine-specific; e.g. absolute node path)
+.claude/
+.vscode/
+.idea/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / temp
+*.log
+*.tmp

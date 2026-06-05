@@ -7,6 +7,40 @@
   'use strict';
   var THREE = global.THREE;
 
+  // Build an omni-wheel mesh: a hub plus a ring of barrel rollers. The rollers
+  // break rotational symmetry so the spin is clearly visible, and look like a
+  // real omni wheel. The wheel's spin axis is local +Y. Nominal radius rw.
+  function buildOmniWheel(rw, thick) {
+    var g = new THREE.Group();
+    var hubMat = new THREE.MeshStandardMaterial({ color: 0xe0a23a, roughness: 0.5, metalness: 0.1 });
+    var rimMat = new THREE.MeshStandardMaterial({ color: 0xb5801f, roughness: 0.6 });
+    var rollMat = new THREE.MeshStandardMaterial({ color: 0x2b3140, roughness: 0.5 });
+    // hub
+    var hub = new THREE.Mesh(new THREE.CylinderGeometry(rw * 0.55, rw * 0.55, thick, 18), hubMat);
+    hub.castShadow = true; g.add(hub);
+    // two rim plates so the roller ring reads as a wheel
+    var plate = new THREE.Mesh(new THREE.CylinderGeometry(rw, rw, thick * 0.18, 22), rimMat);
+    plate.position.y = thick * 0.45; plate.castShadow = true; g.add(plate);
+    var plate2 = plate.clone(); plate2.position.y = -thick * 0.45; g.add(plate2);
+    // a single bright marker spoke so even side-on the spin is obvious
+    var spoke = new THREE.Mesh(new THREE.BoxGeometry(rw * 0.9, thick * 1.05, rw * 0.16),
+      new THREE.MeshStandardMaterial({ color: 0xffd877, emissive: 0x3a2a00 }));
+    g.add(spoke);
+    // barrel rollers around the rim, axes tangent to the circle
+    var nR = 9, ringR = rw * 0.86, rollR = rw * 0.2, rollLen = thick * 1.25;
+    for (var j = 0; j < nR; j++) {
+      var th = j / nR * Math.PI * 2;
+      var roller = new THREE.Mesh(
+        new THREE.CylinderGeometry(rollR, rollR, rollLen, 8), rollMat);
+      roller.position.set(ringR * Math.cos(th), 0, ringR * Math.sin(th));
+      roller.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(-Math.sin(th), 0, Math.cos(th)));
+      roller.castShadow = true;
+      g.add(roller);
+    }
+    return g;
+  }
+
   function View(container) {
     this.container = container;
     var w = container.clientWidth, h = container.clientHeight;
@@ -75,17 +109,16 @@
     // drive cage: yaws with the robot, always hugging the ball
     this.cage = new THREE.Group();
     this.root.add(this.cage);
-    this.wheels = [];
+    this.wheels = [];        // wheel groups (hub + rollers), spun each frame
     this.axleLines = [];
+    this.wheelSpin = [0, 0, 0];   // accumulated spin angle per wheel [rad]
+    this.wheelBaseQuat = [];      // axle-alignment orientation per wheel
     var axleMat = new THREE.LineBasicMaterial({ color: 0x6b7686 });
     for (var i = 0; i < 3; i++) {
-      var wheel = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.029, 0.029, 0.016, 20),
-        new THREE.MeshStandardMaterial({ color: 0xe0a23a, roughness: 0.5 })
-      );
-      wheel.castShadow = true;
+      var wheel = buildOmniWheel(0.029, 0.016);   // nominal radius/thickness
       this.cage.add(wheel);
       this.wheels.push(wheel);
+      this.wheelBaseQuat.push(new THREE.Quaternion());
       // axle line from the wheel center to the shared apex (shows the pyramid)
       var lg = new THREE.BufferGeometry();
       lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
@@ -173,7 +206,9 @@
       var ax3 = toThree(kin.axle[i]).normalize();
       w.position.copy(c3);
       w.scale.setScalar(this.p.rWheel / 0.029);
-      w.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), ax3);
+      // store the axle-alignment orientation; the live spin is composed onto it
+      this.wheelBaseQuat[i].setFromUnitVectors(new THREE.Vector3(0, 1, 0), ax3);
+      w.quaternion.copy(this.wheelBaseQuat[i]);
       // axle line from wheel center to the shared apex
       var pos = this.axleLines[i].geometry.attributes.position;
       pos.setXYZ(0, c3.x, c3.y, c3.z);
@@ -212,6 +247,19 @@
         var dq = new THREE.Quaternion().setFromAxisAngle(ax, ang);
         this._ballQuat.premultiply(dq);
         this.ball.quaternion.copy(this._ballQuat);
+      }
+    }
+
+    // wheel spin: rotate each wheel about its own axle by the commanded speed,
+    // composed onto the stored axle-alignment orientation.
+    var ws = extra.wheelSpeeds;
+    if (ws && extra.dt) {
+      var spinQ = new THREE.Quaternion();
+      var yAxis = new THREE.Vector3(0, 1, 0);
+      for (var wi = 0; wi < 3; wi++) {
+        this.wheelSpin[wi] += ws[wi] * extra.dt;   // integrate angle
+        spinQ.setFromAxisAngle(yAxis, this.wheelSpin[wi]);
+        this.wheels[wi].quaternion.copy(this.wheelBaseQuat[wi]).multiply(spinQ);
       }
     }
 

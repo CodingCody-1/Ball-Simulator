@@ -52,16 +52,18 @@
   function frame(now) {
     var real = Math.min((now - prev) / 1000, 0.05);
     prev = now;
+    var dt = 1 / sim.controlHz;
+    var elapsed = 0;                       // sim-time advanced this frame
     if (sim.running && !plant.fallen) {
       acc += real * sim.rtf;
-      var dt = 1 / sim.controlHz;
       var n = 0;
       while (acc >= dt && n < 2000) { controlTick(dt); acc -= dt; n++; }
+      elapsed = n * dt;
     } else {
       acc = 0;
     }
     var s = plant.getState();
-    view.update(s, { dt: 1 / sim.controlHz, target: commands, force: forces });
+    view.update(s, { dt: elapsed, target: commands, force: forces, wheelSpeeds: wheelSpeeds });
     updateTelemetry(s);
     drawPlot();
     requestAnimationFrame(frame);
